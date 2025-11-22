@@ -38,12 +38,12 @@ class _TopBarWidgetState extends State<TopBarWidget> {
               children: [
                 logo(),
                 SizedBox(
-                  width: 693,
+                  width: 1093,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       Container(
-                        width: 400,
+                        width: 500,
                         margin: const EdgeInsets.only(right: 32),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -62,6 +62,11 @@ class _TopBarWidgetState extends State<TopBarWidget> {
                                 scrollPage(
                                   vWidth > lgSize ? 2175 : 2534,
                                 );
+                              },
+                            ),TabButtonsWidget(
+                              label: 'Apoio Diaconal',
+                              action: () {
+                               Navigator.pushNamed(context,'/diaconia-servico');
                               },
                             ),
                             TabButtonsWidget(

@@ -1,5 +1,6 @@
 import 'package:core_module/core_module.dart';
 import 'package:flutter/material.dart';
+import 'package:ipbc_web/src/home/views/deacon_charity_view.dart';
 import 'src/home/views/home_view.dart';
 import 'src/home/view_models/home_view_model.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
@@ -30,6 +31,7 @@ class MainModule extends Module {
   void routes(r) {
     r.child('/home', child: (_) => const HomeView());
     r.child('/', child: (_) => const HomeView());
+    r.child('/diaconia-servico', child: (_) => const DeaconCharityView());
     // r.module('/', module: AuthModule());
   }
 }
