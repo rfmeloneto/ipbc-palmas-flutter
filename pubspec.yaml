@@ -30,3 +30,5 @@ melos:
     sonar-all:
       run: melos exec --file-exists="sonar-project.properties" -- bash ../../sonar.sh
       description: Executa o sonar.sh em cada módulo com sonar-project.properties
+dependencies:
+  http: ^1.5.0
