@@ -20,7 +20,7 @@ export 'package:bloc_concurrency/bloc_concurrency.dart';
 export 'src/auth/infra/exceptions/supa_auth_exception.dart';
 export 'src/core/configs/app_configs.dart';
 export 'src/core/configs/app_routes.dart';
-//export 'src/core/configs/api_keys.dart';
+export 'src/core/configs/api_keys.dart';
 export 'src/core/configs/no_glow_behavior.dart';
 export 'src/core/configs/generic_bloc_observer.dart';
 
