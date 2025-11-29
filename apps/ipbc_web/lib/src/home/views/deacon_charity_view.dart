@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+//import 'package:http/http.dart' as http;
+import 'package:core_module/core_module.dart' as http;
 import '../../../layout/top_bar/top_bar_widget.dart';
 
 class DeaconCharityView extends StatefulWidget {
@@ -53,7 +54,7 @@ ${observacoesController.text}
 ''';
 
     const sendGridApiKey = 'SUA_CHAVE_SENDGRID_AQUI';
-    const emailDestino = 'diaconia@suaigreja.com';
+    const emailDestino = 'rfmeloneto@gmail.com';
     final url = Uri.parse('https://api.sendgrid.com/v3/mail/send');
 
     final response = await http.post(

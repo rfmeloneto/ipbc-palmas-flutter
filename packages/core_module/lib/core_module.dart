@@ -2,6 +2,7 @@ library;
 
 export 'src/app_module.dart';
 
+export 'package:http/http.dart';
 export 'package:path_provider/path_provider.dart';
 export 'package:flutter_modular/flutter_modular.dart';
 export 'package:intl/intl.dart';
@@ -20,7 +21,7 @@ export 'package:bloc_concurrency/bloc_concurrency.dart';
 
 export 'src/core/configs/app_configs.dart';
 export 'src/core/configs/app_routes.dart';
-export 'src/core/configs/api_keys.dart';
+//export 'src/core/configs/api_keys.dart';
 export 'src/core/configs/no_glow_behavior.dart';
 export 'src/core/configs/generic_bloc_observer.dart';
 
