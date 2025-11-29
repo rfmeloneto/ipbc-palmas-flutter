@@ -16,17 +16,45 @@ class AuthUseCases implements IAuthUseCases {
     var entity = await _onlineRepository.createAccount(email, password);
     return Future.value(entity as String);
   }
-  
+
   @override
   Future<String?> signInWithEmail(String email, String password) async {
-    var entity = await _onlineRepository.signInWithEmail(email, password);
-    return Future.value(entity as String);
+    final response = await _onlineRepository.signInWithEmail(email, password);
+    return response.fold(
+      (authUserDTO) async {
+        await _saveUserAndCredentials(
+          authUserDTO.user,
+          authUserDTO.auth
+        );
+        return Future.value(null);
+      },
+      (exception) {
+        switch (exception.statusCode) {
+          case '400':
+            return Future.value(
+              'Por favor, verifique seu e-mail ou senha e tente novamente.',
+            );
+          case '403':
+            return Future.value('Acesso proibido. Verifique suas credenciais.');
+          case '404':
+            return Future.value(
+              'Usuário não encontrado. Verifique o email informado.',
+            );
+          case '500':
+            return Future.value(
+              'Erro no servidor. Tente novamente mais tarde.',
+            );
+          default:
+            return Future.value('Erro desconhecido. Código: ${exception.code}');
+        }
+      },
+    );
   }
 
   @override
   Future<String?> signInWithGoogle() async {
     final String? jwtToken = await _onlineRepository.signInWithGoogle();
-    if(jwtToken == null) return null;
+    if (jwtToken == null) return null;
     UserEntity? currentUser = _onlineRepository.getCurrentUser();
     await _saveUserAndCredentials(
       currentUser,
@@ -49,8 +77,8 @@ class AuthUseCases implements IAuthUseCases {
 
   @override
   Future<String?> getCredentials() async {
-    IsarCredentialsDTO? entity = await _offlineRepository
-        .get<IsarCredentialsDTO>();
+    HiveCredentialsDTO? entity = await _offlineRepository
+        .get<HiveCredentialsDTO>();
     if (entity != null) {
       return entity.token;
     } else {
@@ -59,31 +87,23 @@ class AuthUseCases implements IAuthUseCases {
   }
 
   @override
-  Future<UserEntity?> getLocalUser() async {
-    final user = await _offlineRepository.get<IsarUserDTO>();
-    if (user != null) {
-      return UserEntity.fromIsar(user);
-    } else {
-      return null;
-    }
-  }
+  Future<UserEntity?> getLocalUser() async => await _offlineRepository.get<HiveUserDTO>(params: {'type': HiveRepository.userHiveBox});
 
   @override
   dynamic saveCredentials(AuthCredentials auth) =>
-      _offlineRepository.add<IsarCredentialsDTO>(
-        data: IsarCredentialsDTO(
-          token: auth.token,
-          provider: auth.provider,
-          role: auth.role,
-        ),
+      _offlineRepository.add<HiveCredentialsDTO>(
+        params: {'type': HiveRepository.credentialsHiveBox},
+        data: auth,
       );
 
   @override
-  void saveLocalUser(UserEntity user) =>
-      _offlineRepository.add<IsarUserDTO>(data: IsarUserDTO.create(user));
+  void saveLocalUser(UserEntity user) => _offlineRepository.add<HiveUserDTO>(
+    data: user,
+    params: {'type': HiveRepository.userHiveBox},
+  );
 
   @override
-  dynamic logout({required int id, required String? provider}) async {
+  dynamic logout({required String? provider}) async {
     switch (provider ?? '') {
       case 'google':
         await _onlineRepository.logoutWithGoogle();
@@ -92,13 +112,12 @@ class AuthUseCases implements IAuthUseCases {
         break;
       default:
     }
-    await _offlineRepository.delete<IsarUserDTO>(params: {'id': id});
-    return await _offlineRepository.delete<IsarCredentialsDTO>();
+    await _offlineRepository.delete<HiveUserDTO>();
+    return await _offlineRepository.delete<HiveCredentialsDTO>();
   }
 
   @override
   Future<void> signInWithFacebook() async {
     await _onlineRepository.signInFacebook();
   }
-
 }

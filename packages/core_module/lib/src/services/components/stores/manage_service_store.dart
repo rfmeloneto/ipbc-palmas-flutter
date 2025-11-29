@@ -3,23 +3,12 @@ import 'package:flutter/material.dart';
 
 class ManageServiceStore extends ValueNotifier<GenericState<ManageServiceState>>
     with DateMixin, ConnectivityMixin {
-  ManageServiceStore({
-    required IUseCases useCases,
-    required ServicesPreviewStore servicesPreviewStore,
-    required SearchLyricsStore searchLyricsStore,
-    required ManageLyricStore manageLyricStore,
-  }) : _useCases = useCases,
-       _servicesPreviewStore = servicesPreviewStore,
-       _searchLyricsStore = searchLyricsStore,
-       _manageLyricStore = manageLyricStore,
-       super(InitialState<ManageServiceState>());
-  final ServicesPreviewStore _servicesPreviewStore;
-  final SearchLyricsStore _searchLyricsStore;
-  final ManageLyricStore _manageLyricStore;
+  ManageServiceStore({required IUseCases useCases})
+    : _useCases = useCases,
+      super(InitialState<ManageServiceState>());
 
-  get servicesPreviewStore => _servicesPreviewStore;
-
-  get searchLyricsStore => _searchLyricsStore;
+  String? _nextFocusId;
+  String? _currentlyFocusedLiturgyId;
   final IUseCases _useCases;
   bool isEditing = false;
   int index = 0;
@@ -39,63 +28,59 @@ class ManageServiceStore extends ValueNotifier<GenericState<ManageServiceState>>
 
   ValueNotifier<bool> isPreacherValid = ValueNotifier(true);
   ValueNotifier<bool> isThemeValid = ValueNotifier(true);
-  ValueNotifier<bool> isPressed = ValueNotifier(false);
+  ValueNotifier<bool> isSavePressed = ValueNotifier(false);
 
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, FocusNode> _focusNodes = {};
 
   late FocusScopeNode _rootFocusNode;
 
-  get rootFocusNode => _rootFocusNode;
+  FocusScopeNode get rootFocusNode => _rootFocusNode;
 
-  get controllers => _controllers;
+  Map<String, TextEditingController> get controllers => _controllers;
 
-  get focusNodes => _focusNodes;
+  Map<String, FocusNode> get focusNodes => _focusNodes;
 
   bool isAnyTextFieldFocused = false;
 
-  init() {
-    fillItems();
-    setDayInTheWeek();
-    controllersAndFocusNodes();
+  void init() {
     if (!isEditing) {
+      fillItems();
+      setDayInTheWeek();
+      controllersAndFocusNodes();
       preacherController.clear();
       themeController.clear();
     }
     _rootFocusNode = FocusScopeNode();
-    _rootFocusNode.addListener(_handleRootFocusChange);
   }
 
-  clear() {
-    _rootFocusNode.removeListener(_handleRootFocusChange);
-    resetValidationFields();
+  void resetValidationFields() {
+    changeValue(isThemeValid, true);
+    changeValue(isPreacherValid, true);
   }
 
-  void _handleRootFocusChange() {
-    if (isAnyTextFieldFocused != _rootFocusNode.hasFocus) {
-      isAnyTextFieldFocused = _rootFocusNode.hasFocus;
-      notifyListeners();
+  void clearFocusAndControllers() {
+    for (var node in _focusNodes.values) {
+      node.dispose();
     }
+    for (var controller in _controllers.values) {
+      controller.dispose();
+    }
+    _focusNodes.clear();
+    _controllers.clear();
   }
 
-  formValidation(String? data, ValueNotifier<bool> isValid) {
+  void formValidation(String? data, ValueNotifier<bool> isValid) {
     if (isEmptyData(data)) {
       changeValue(isValid, false);
-      return null;
     } else {
       changeValue(isValid, true);
-      return null;
     }
   }
 
-  edit({
-    required ServicesEntity servicesEntityParam,
-    required ServiceEntity serviceEntityParam,
-  }) {
+  void edit() {
     isEditing = true;
-    servicesEntity = servicesEntityParam;
-    serviceEntity = serviceEntityParam;
-    liturgiesList = serviceEntityParam.liturgiesList ?? [];
+    liturgiesList = serviceEntity?.liturgiesList ?? [];
     themeController.text = serviceEntity!.theme;
     preacherController.text = serviceEntity!.preacher;
     startDate = serviceEntity?.serviceDate;
@@ -106,25 +91,63 @@ class ManageServiceStore extends ValueNotifier<GenericState<ManageServiceState>>
     controllersAndFocusNodes();
   }
 
-  void controllersAndFocusNodes({bool isRemove = false}) {
-    for (int i = 0; i < liturgiesList.length; i++) {
-      final liturgy = liturgiesList[i];
-      final sequenceKey = '${liturgy.id}_0';
-      final additionalKey = '${liturgy.id}_1';
-      _controllers[sequenceKey] = TextEditingController(
-        text: liturgiesList[i].sequence,
-      );
-      _focusNodes[sequenceKey] = FocusNode();
-      if (liturgy.isAdditional) {
-        _controllers[additionalKey] = TextEditingController(
-          text: liturgiesList[i].additional,
-        );
-        _focusNodes[additionalKey] = FocusNode();
-      }
+  void controllersAndFocusNodes() {
+    clearFocusAndControllers();
+    for (var liturgy in liturgiesList) {
+      _addControllersAndFocusNodesForItem(liturgy);
     }
   }
 
-  setDayInTheWeek() {
+  void _addControllersAndFocusNodesForItem(LiturgyEntity liturgy) {
+    final liturgyId = liturgy.id!;
+    final sequenceKey = '${liturgyId}_0';
+    final additionalKey = '${liturgyId}_1';
+
+    void focusListener(bool hasFocus) {
+      if (hasFocus) {
+        _currentlyFocusedLiturgyId = liturgyId;
+      } else {
+        if (_currentlyFocusedLiturgyId == liturgyId) {
+          _currentlyFocusedLiturgyId = null;
+        }
+      }
+      value = UpdateFormFieldState();
+    }
+
+    final titleController = TextEditingController(text: liturgy.sequence);
+    final titleFocusNode = FocusNode();
+
+    titleFocusNode.addListener(() => focusListener(titleFocusNode.hasFocus));
+
+    _controllers[sequenceKey] = titleController;
+    _focusNodes[sequenceKey] = titleFocusNode;
+
+    if (liturgy.isAdditional) {
+      final subtitleController = TextEditingController(
+        text: liturgy.additional,
+      );
+      final subtitleFocusNode = FocusNode();
+      subtitleFocusNode.addListener(() {
+        focusListener(subtitleFocusNode.hasFocus);
+        if (!subtitleFocusNode.hasFocus && subtitleController.text.isEmpty) {
+          final index = liturgiesList.indexWhere(
+            (item) => item.id == liturgyId,
+          );
+          if (index != -1 && liturgiesList[index].isAdditional) {
+            liturgiesList[index] = liturgiesList[index].copyWith(
+              isAdditional: false,
+            );
+          }
+        }
+        value = UpdateFormFieldState();
+      });
+
+      _controllers[additionalKey] = subtitleController;
+      _focusNodes[additionalKey] = subtitleFocusNode;
+    }
+  }
+
+  void setDayInTheWeek() {
     startTime = TimeOfDay(
       hour: servicesEntity.serviceDate.hour,
       minute: servicesEntity.serviceDate.minute,
@@ -136,28 +159,24 @@ class ManageServiceStore extends ValueNotifier<GenericState<ManageServiceState>>
         startTime,
       ),
     );
-    notifyListeners();
-  }
-
-  resetValidationFields() {
-    changeValue(isThemeValid, true);
-    changeValue(isPreacherValid, true);
+    value = UpdateFormFieldState();
   }
 
   bool isEmptyData(String? data) {
     return (data == null || data.isEmpty);
   }
 
-  changeValue(ValueNotifier<bool> valueNotifier, bool newValue) {
+  void changeValue(ValueNotifier<bool> valueNotifier, bool newValue) {
     Future.delayed(Duration.zero, () async {
       valueNotifier.value = newValue;
-      notifyListeners();
+      value = UpdateFormFieldState();
     });
   }
 
   Future<void> submit(BuildContext context) async {
+    isSavePressed.value = true;
     if (validateAllFields()) {
-      final response = await isConnected();
+      final response = await isConnected(context: context);
       if (response) {
         final typeList = servicesEntity.path.split('/');
         value = AddDataEvent<ManageServiceState>();
@@ -190,32 +209,34 @@ class ManageServiceStore extends ValueNotifier<GenericState<ManageServiceState>>
           heading: servicesEntity.heading,
         );
 
-        await _useCases.upsert(
-          params: {'table': 'service'},
+       final response = await _useCases.upsert(
+          params: {'table': 'service', 'selectFields': 'id'},
           data: ServiceAdapter.toMap(serviceEntity!),
         );
 
+        Modular.get<ServiceStore>().servicesEntity = servicesEntity;
+        Modular.get<ServiceStore>().serviceEntity = serviceEntity!.copyWith(id: response[0]['id'].toString());
+
         if (context.mounted) {
-          await showCustomSuccessDialog(
+          showCustomMessageDialog(
             context: context,
             title: 'Sucesso!',
             message: 'Culto salvo',
-          );
-
-          Modular.get<ServicesPreviewStore>().servicesEntity = servicesEntity;
-          Modular.get<ServicesPreviewStore>().serviceEntity = serviceEntity!;
-
-          if (updateCallbackParam != null) {
-            updateCallbackParam!();
-          }
-
-          popAndPushNamed(
-            AppRoutes.servicesRoute + AppRoutes.servicesPreviewRoute,
+            type: DialogType.success,
+            duration: const Duration(seconds: 1),
+            onDelayedAction: () {
+              if (updateCallbackParam != null && context.mounted) {
+                updateCallbackParam!();
+              }
+            }
           );
         }
       }
+      Modular.get<LyricsListStore>().entitiesList = [];
+      isSavePressed.value = false;
       value = DataAddedState<ManageServiceState>();
     } else {
+      isSavePressed.value = false;
       value = NoConnectionState<ManageServiceState>();
     }
   }
@@ -224,16 +245,16 @@ class ManageServiceStore extends ValueNotifier<GenericState<ManageServiceState>>
     final response = await _useCases.delete(
       params: {
         'table': 'service',
-        'referenceField': 'id',
+        'whereClause': 'id',
         'referenceValue': entitiesList.id,
         'selectFields': 'id',
       },
     );
-    notifyListeners();
-    return Future.value(response[0]);
+    value = UpdateFormFieldState();
+      return Future.value(response[0]);
   }
 
-  fillItems() {
+  void fillItems() {
     liturgiesList = [
       LiturgyEntity(
         id: '0',
@@ -290,39 +311,75 @@ class ManageServiceStore extends ValueNotifier<GenericState<ManageServiceState>>
         additional: '',
       ),
     ];
-    notifyListeners();
+    value = UpdateFormFieldState();
   }
 
   void addBox() {
     liturgiesList.insert(
       0,
       LiturgyEntity(
-        id: MockUtil.createId(),
-        isAdditional: true,
+        id: (liturgiesList.length + 1).toString(),
+        isAdditional: false,
         sequence: 'Título',
-        additional: 'Descrição',
       ),
     );
     controllersAndFocusNodes();
-    notifyListeners();
+    value = UpdateFormFieldState();
   }
 
   void copyBox() {
-    liturgiesList.insert(index, liturgyModel.copyWith(id: MockUtil.createId()));
+    final String currentSequence =
+        _controllers['${liturgyModel.id}_0']?.text ?? liturgyModel.sequence;
+    final String? currentAdditional =
+        _controllers['${liturgyModel.id}_1']?.text;
+
+    final updatedLiturgyModel = liturgyModel.copyWith(
+      sequence: currentSequence,
+      additional: currentAdditional,
+    );
+    liturgiesList[index] = updatedLiturgyModel;
+    final newLiturgy = updatedLiturgyModel.copyWith(
+      id: (liturgiesList.length + 1).toString(),
+    );
+
+    liturgiesList.insert(index + 1, newLiturgy);
     controllersAndFocusNodes();
-    notifyListeners();
+    value = UpdateFormFieldState();
   }
 
-  void deleteBox({required String? key}) {
-    liturgiesList.remove(liturgyModel);
-    _controllers.remove("${key}_0");
-    _focusNodes.remove("${key}_0");
-    if (liturgyModel.isAdditional) {
-      _controllers.remove("${key}_1");
-      _focusNodes.remove("${key}_1");
+  bool deleteBox({required String? key}) {
+    if (key == null) return false;
+
+    final indexToDelete = liturgiesList.indexWhere((item) => item.id == key);
+    if (indexToDelete == -1) return false;
+
+    bool shouldMoveFocus = false;
+
+    if (_currentlyFocusedLiturgyId != null) {
+      shouldMoveFocus = true;
+
+      final indexToFocus = (indexToDelete > 0) ? indexToDelete - 1 : 0;
+      if (liturgiesList.length > 1) {
+        _nextFocusId = liturgiesList[indexToFocus].id;
+      } else {
+        _nextFocusId = null;
+      }
     }
-    controllersAndFocusNodes();
-    notifyListeners();
+
+    liturgiesList.removeAt(indexToDelete);
+
+    if (liturgiesList.isNotEmpty) {
+      final indexToFocus = (indexToDelete > 0) ? indexToDelete - 1 : 0;
+      _nextFocusId = liturgiesList[indexToFocus].id;
+    }
+
+    _controllers.remove("${key}_0")?.dispose();
+    _focusNodes.remove("${key}_0")?.dispose();
+    _controllers.remove("${key}_1")?.dispose();
+    _focusNodes.remove("${key}_1")?.dispose();
+
+    value = UpdateFormFieldState();
+    return shouldMoveFocus;
   }
 
   bool validateAllFields() {
@@ -336,18 +393,48 @@ class ManageServiceStore extends ValueNotifier<GenericState<ManageServiceState>>
     return allTextValid;
   }
 
-  void addLyric({required String? text}) {
-    if (text != null && text.isNotEmpty) {
-      _manageLyricStore.lyric = servicesPreviewStore.convertTextInLyric(text);
-      _manageLyricStore.buttonCallback = () {
-        _manageLyricStore.addLyric();
-        popUntil(
-          (route) =>
-              route.settings.name ==
-              AppRoutes.servicesRoute + AppRoutes.servicesPreviewRoute,
-        );
-      };
-      pushNamed(AppRoutes.servicesRoute + AppRoutes.manageLyricsRoute);
+  void activateAdditionalField(String liturgyId) {
+    final index = liturgiesList.indexWhere((item) => item.id == liturgyId);
+    if (index != -1) {
+      final liturgy = liturgiesList[index];
+      if (!liturgy.isAdditional) {
+        _nextFocusId = liturgyId;
+        liturgiesList[index] = liturgy.copyWith(isAdditional: true);
+        _addControllersAndFocusNodesForItem(liturgiesList[index]);
+        value = UpdateFormFieldState();
+      }
+    }
+  }
+
+  void requestFocusAfterBuild() {
+    if (_nextFocusId != null) {
+      final focusNode = _focusNodes["${_nextFocusId}_0"];
+      focusNode?.requestFocus();
+      _nextFocusId = null;
+    }
+  }
+
+  void deactivateAdditionalField(String liturgyId) {
+    final additionalKey = '${liturgyId}_1';
+    _controllers.remove(additionalKey);
+    _focusNodes.remove(additionalKey);
+  }
+
+  bool shouldAutofocus(String liturgyId) {
+    if (_nextFocusId == liturgyId) {
+      _nextFocusId = null;
+      return true;
+    }
+    return false;
+  }
+
+  void updateLiturgyItemState(String liturgyId, bool isAdditional) {
+    final index = liturgiesList.indexWhere((item) => item.id == liturgyId);
+    if (index != -1) {
+      liturgiesList[index] = liturgiesList[index].copyWith(
+        isAdditional: isAdditional,
+      );
+      notifyListeners();
     }
   }
 }

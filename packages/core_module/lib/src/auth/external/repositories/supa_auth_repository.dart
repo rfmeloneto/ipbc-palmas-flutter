@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:core_module/core_module.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../../infra/dtos/auth_user_dto.dart';
 import '../../infra/repositories/auth_repositories.dart';
 
 const List<String> _scopes = <String>['email', 'profile'];
@@ -23,26 +24,45 @@ class SupaAuthRepository implements IOnlineAuthRepository {
         email: email,
         password: password,
       );
-      return result.user?.id != null ?"sucesso" : "Falha no cadastro";
+      return result.user?.id != null ? "sucesso" : "Falha no cadastro";
     } on AuthException catch (e) {
       // Trata erros específicos de autenticação
-      print('Erro no cadastro: ${e.message}');
+     // print('Erro no cadastro: ${e.message}');
       return e.message; // Retorna a mensagem de erro
     } catch (e) {
       // Trata outros erros inesperados
-      print('Erro inesperado no cadastro: $e');
+     // print('Erro inesperado no cadastro: $e');
       return 'Ocorreu um erro inesperado.';
     }
-    return 'Ocorreu um erro desconhecido.';
+    //return 'Ocorreu um erro desconhecido.';
   }
 
   @override
-  Future<String> signInWithEmail(String email, String password) async {
-    final AuthResponse res = await _supaClient.auth.signInWithPassword(
-      email: email,
-      password: password,
-    );
-    return res.session?.accessToken != null ? res.session!.accessToken : '';
+  Future<Either<AuthUserDTO, SupaAuthException>> signInWithEmail(String email, String password) async {
+    try {
+      final AuthResponse authResponse = await _supaClient.auth.signInWithPassword(email: email, password: password);
+      UserEntity? currentUser = UserEntity.create(authResponse.user);
+      return left(
+        AuthUserDTO(
+          auth: AuthCredentials(
+            token: authResponse.session?.accessToken != null
+                ? authResponse.session!.accessToken
+                : '',
+            provider: currentUser.provider ?? "",
+            role: currentUser.role ?? "",
+          ),
+          user: currentUser,
+        ),
+      );
+    } on AuthApiException catch (e) {
+      return right(
+        SupaAuthException(
+          message: e.message,
+          statusCode: e.statusCode != null ? e.statusCode! : '500',
+          code: e.code,
+        ),
+      );
+    }
   }
 
   @override
@@ -95,7 +115,7 @@ class SupaAuthRepository implements IOnlineAuthRepository {
         redirectTo: 'https://xrvmfhpmelyvupfylnfk.supabase.co/auth/v1/callback',
       );
     } catch (e) {
-      print('Erro inesperado: $e');
+     // print('Erro inesperado: $e');
     }
   }
 

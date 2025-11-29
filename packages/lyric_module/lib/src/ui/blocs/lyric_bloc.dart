@@ -6,7 +6,6 @@ import 'package:lyric_module/src/ui/blocs/type_filter.dart';
 
 class LyricBloc extends Bloc<GenericEvent<LyricEvent>, GenericState<LyricState>>
     with ConnectivityMixin {
-
   LyricBloc({
     required this.onlineUseCases,
     this.offlineUseCases,
@@ -20,11 +19,10 @@ class LyricBloc extends Bloc<GenericEvent<LyricEvent>, GenericState<LyricState>>
     on<LoadingEvent<LyricEvent>>(_loading);
     on<GetPaginationEvent<LyricEvent, LyricEntity>>(_getPaginationInSupa);
   }
-
+  List<LyricEntity> entitiesList = [];
+  int viewHashCode = 0;
   final IUseCases onlineUseCases;
   final IUseCases? offlineUseCases;
-  List<LyricEntity> entitiesList = [];
-
   bool isSelected = false;
 
   String selectedValue = '';
@@ -34,23 +32,23 @@ class LyricBloc extends Bloc<GenericEvent<LyricEvent>, GenericState<LyricState>>
   final LyricsListStore _lyricsListStore;
   final ManageLyricStore _manageLyricStore;
 
-  get lyricsListStore => _lyricsListStore;
-  get manageLyricStore => _manageLyricStore;
-  get controller => _controller;
+  LyricsListStore get lyricsListStore => _lyricsListStore;
+
+  ManageLyricStore get manageLyricStore => _manageLyricStore;
+
+  TextEditingController get controller => _controller;
 
   final Map<String, Object> lyricParams = {
     'table': 'lyrics',
     'orderBy': 'create_at',
     'ascending': false,
-    'selectFields':
-        'id, title, group, album_cover, create_at, lyrics_verses (verses(id, is_chorus, verses_list))',
+    'selectFields': 'id, title, group, album_cover, create_at, verses',
   };
 
-  init({required BuildContext context}) async {
-    add(GetDataEvent<LyricEvent>());
-    _manageLyricStore.isEditing = true;
+  Future<void> init({required BuildContext context}) async {
+    add(GetDataEvent<LyricEvent>(context: context));
     _manageLyricStore.buttonCallback = () {
-      add(GetDataEvent<LyricEvent>());
+      add(GetDataEvent<LyricEvent>(context: context));
       pop(context);
     };
   }
@@ -63,17 +61,15 @@ class LyricBloc extends Bloc<GenericEvent<LyricEvent>, GenericState<LyricState>>
   }
 
   Future<void> _getInSupa(GetDataEvent<LyricEvent> event, emit) async {
-    //Caso esteja sem conexão eu salvo essas musicas no isar
-    final response = await isConnected();
+    final response = await isConnected(context: event.context);
     if (response) {
       final lyricsList = await onlineUseCases.get(
         params: lyricParams,
         converter: LyricAdapter.fromMapList,
       );
-      if (lyricsList!.isNotEmpty) {
-        entitiesList = lyricsList;
-        emit(DataFetchedState<LyricState>());
-      }
+      _lyricsListStore.entitiesList = lyricsList;
+      if (emit.isDone) return;
+      emit(DataFetchedState<LyricState>());
     } else {
       emit(NoConnectionState<LyricState>());
     }
@@ -83,10 +79,9 @@ class LyricBloc extends Bloc<GenericEvent<LyricEvent>, GenericState<LyricState>>
     GetPaginationEvent<LyricEvent, LyricEntity> event,
     emit,
   ) async {
-    List<LyricEntity> lyricsListAux = [];
-    //Caso esteja sem conexão eu salvo essas musicas no hive
-    int offset = entitiesList.length;
 
+    List<LyricEntity> lyricsListAux = [];
+    int offset = _lyricsListStore.entitiesList.length;
     final Map<String, Object> paginationParams = {
       'table': 'lyrics',
       'limit': event.limit,
@@ -98,25 +93,50 @@ class LyricBloc extends Bloc<GenericEvent<LyricEvent>, GenericState<LyricState>>
     );
     //Verificando se tem novos itens retornados se sim eu adiciona lista principal
     if (lyricsListAux.isNotEmpty) {
-      entitiesList.addAll(lyricsListAux);
+      _lyricsListStore.entitiesList.addAll(lyricsListAux);
       emit(DataFetchedState<LyricState>());
     } else {
       emit(NoMoreDataState<LyricState, List<LyricEntity>>());
     }
   }
 
-  Future<void> _loading(_, emit) async {
+  Future<void> _loading(_, dynamic emit) async {
     emit(LoadingState<LyricState>());
   }
 
   Future<void> _filter(FilterEvent<LyricEvent, LyricEntity> event, emit) async {
     if (event.writing) {
-      entitiesList = event.typeFilter.filterListing(event, entitiesList);
+      _lyricsListStore.entitiesList = event.typeFilter.filterListing(
+        event,
+        _lyricsListStore.entitiesList,
+      );
       emit(DataFetchedState<LyricState>());
     } else {
       emit(DataFetchedState<LyricState>());
     }
   }
+
+  void editLyric(BuildContext context) {
+    manageLyricStore.isEditing = true;
+    manageLyricStore.lyric.value = lyricsListStore.lyricEntity;
+    pushNamed(AppRoutes.servicesRoute + AppRoutes.manageLyricsRoute);
+    Future.delayed(Duration(seconds: 1), () {
+      _lyricsListStore.value = RefreshingState();
+    });
+    pop(context);
+  }
+
+  void deleteLyric({required BuildContext context}) async {
+    String? lyricIdParam = lyricsListStore.lyricEntity.id;
+    if (lyricIdParam != null) {
+      manageLyricStore.deleteLyric(context: context, lyricId: lyricIdParam);
+      Future.delayed(Duration(seconds: 1), () {
+        _lyricsListStore.value = RefreshingState();
+      });
+      popToast(2);
+    }
+  }
+
 }
 
 @immutable

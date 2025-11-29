@@ -24,18 +24,16 @@ class _NativeHomeRoutesState extends State<NativeHomeRoutes> {
       key: Platform.isIOS ? null : _androidNavigatorKey,
       onGenerateRoute: (RouteSettings settings) {
         switch (settings.name) {
+
           case AppRoutes.homeRoute || AppRoutes.rootRoute:
             return CustomFadeTransition(child: const HomeView());
 
-          case AppRoutes.serviceRoute:
-            return CustomFadeTransition(
-              child: ServiceView(entity: settings.arguments as ServiceEntity),
-            );
-
           case AppRoutes.servicesListRoute:
+            final args = settings.arguments as Map<String, dynamic>;
             return CustomFadeTransition(
               child: ServicesListView(
-                entities: settings.arguments as List<ServicesEntity>,
+                entities: args['servicesList'],
+                shimmerController: args['shimmerController'],
               ),
             );
 
@@ -51,13 +49,6 @@ class _NativeHomeRoutesState extends State<NativeHomeRoutes> {
 
           case AppRoutes.eventRoute + AppRoutes.eventsListRoute:
             return CustomFadeTransition(child: const EventsListView());
-
-          case AppRoutes.detailEventRoute:
-            return CustomFadeTransition(
-              child: EventsDetailView(
-                eventEntity: settings.arguments as EventEntity,
-              ),
-            );
 
           default:
             return unknownRoute();

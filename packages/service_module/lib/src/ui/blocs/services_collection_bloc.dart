@@ -11,29 +11,38 @@ class ServicesCollectionBloc
         >
     with ConnectivityMixin {
   final IUseCases onlineUseCases;
-  final IUseCases? offlineUseCases;
-  final ManageServiceStore editStore;
+  final ManageServiceStore manageServiceStore;
   Map<String, Object> servicesCollectionParams = {};
   List<ServiceEntity> entitiesList = [];
-  late final Function updateCallback;
   late String path;
 
   ServicesCollectionBloc({
-    required this.editStore,
+    required this.manageServiceStore,
     required this.onlineUseCases,
-    this.offlineUseCases,
-  }) : super(LoadingState()) {
-    updateCallback = () {
-      add(GetDataEvent());
-    };
-
+    required ServiceStore serviceStore,
+    required LyricsListStore lyricsListStore,
+  }) : _serviceStore = serviceStore,
+       super(LoadingState()) {
     on<GetDataEvent<ServicesCollectionEvent>>(_getInSupa);
     on<LoadingEvent<ServicesCollectionEvent>>(_loading);
     on<DeleteItemEvent>(_deleteItem);
   }
 
-  Future<void> _getInSupa(_, emit) async {
-    final response = await isConnected();
+  final ServiceStore _serviceStore;
+
+  ServiceStore get serviceStore => _serviceStore;
+
+  void _updateServicesCollectionCallback(BuildContext context) {
+    add(GetDataEvent(context: context));
+  }
+
+  void _updateCallBack() {
+    _serviceStore.isChanged.value = true;
+    popAndPushNamed(AppRoutes.servicesRoute + AppRoutes.serviceRoute);
+  }
+
+  Future<void> _getInSupa(dynamic event, emit) async {
+    final response = await isConnected(context: event.context);
     if (response) {
       List<String> pathList = path.split('/');
       servicesCollectionParams = {
@@ -43,47 +52,70 @@ class ServicesCollectionBloc
         'filterValue': pathList[2],
         'ascending': bool.parse(pathList[4]),
         'selectFields':
-            'id, create_at, image, title, theme, preacher, service_date, heading, type, guide_is_visible, liturgies, service_lyrics (lyrics(id, title, group, album_cover, create_at, lyrics_verses (verses(id, is_chorus, verses_list))))',
+            'id, create_at, image, title, theme, preacher, service_date, heading, type, guide_is_visible, liturgies, service_lyrics (lyrics(id, title, group, album_cover, create_at, verses)))',
       };
       add(LoadingEvent<ServicesCollectionEvent>());
-      List<ServiceEntity> services = await onlineUseCases.get(
+      entitiesList = await onlineUseCases.get(
         params: servicesCollectionParams,
         converter: ServiceAdapter.fromMapList,
       );
-      entitiesList = services;
       emit(DataFetchedState<ServicesCollectionState>());
     } else {
       emit(NoConnectionState<ServicesCollectionState>());
     }
   }
 
-  Future<void> _deleteItem(event, emit) async {
+  Future<void> _deleteItem(dynamic event, emit) async {
     final service = entitiesList[event.index];
-    final response = await editStore.delete(service);
+    final response = await manageServiceStore.delete(service);
+    popToast(2);
+
     if (response != null) {
       entitiesList.remove(service);
     }
+
+    showCustomMessageDialog(
+      type: DialogType.success,
+      context: event.context,
+      title: 'Sucesso!',
+      message: 'Música deletada com sucesso.',
+    );
     emit(DataFetchedState<ServicesCollectionState>());
   }
 
-  void editItem({required int index, required ServicesEntity servicesEntity}) {
-    editStore.edit(
-      serviceEntityParam: entitiesList[index],
-      servicesEntityParam: servicesEntity,
-    );
-    editStore.updateCallbackParam = updateCallback;
+  void editItem({required int index}) {
+    manageServiceStore.serviceEntity = entitiesList[index];
+    _serviceStore.updateServicesCollectionCallback =
+        _updateServicesCollectionCallback;
+    manageServiceStore.updateCallbackParam = _updateCallBack;
+    manageServiceStore.edit();
     pushNamed(AppRoutes.servicesRoute + AppRoutes.manageServicesRoute);
   }
 
-  Future<void> addItem({required ServicesEntity servicesEntity}) async {
-    editStore.servicesEntity = servicesEntity;
-    editStore.isEditing = false;
-    editStore.updateCallbackParam = updateCallback;
+  Future<void> addItem() async {
+    manageServiceStore.isEditing = false;
+    _serviceStore.updateServicesCollectionCallback =
+        _updateServicesCollectionCallback;
+    manageServiceStore.updateCallbackParam = _updateCallBack;
     pushNamed(AppRoutes.servicesRoute + AppRoutes.manageServicesRoute);
   }
 
-  void _loading(_, emit) async {
+  void _loading(_, dynamic emit) async {
     emit(LoadingState<ServicesCollectionState>());
+  }
+
+  void toService(
+    ServicesEntity servicesEntityParam,
+    ServiceEntity serviceEntityParam,
+  ) {
+    Modular.get<ServiceStore>().servicesEntity = servicesEntityParam;
+    Modular.get<ServiceStore>().serviceEntity = serviceEntityParam;
+    _serviceStore.entitiesList = [];
+    if (serviceEntityParam.lyricsList != null &&
+        serviceEntityParam.lyricsList!.isNotEmpty) {
+      _serviceStore.entitiesList = serviceEntityParam.lyricsList!;
+    }
+    pushNamed(AppRoutes.servicesRoute + AppRoutes.serviceRoute);
   }
 }
 
@@ -91,8 +123,9 @@ class ServicesCollectionBloc
 abstract class ServicesCollectionEvent {}
 
 class DeleteItemEvent extends GenericEvent<ServicesCollectionEvent> {
-  DeleteItemEvent({required this.index});
+  DeleteItemEvent({required this.context, required this.index});
 
+  final BuildContext context;
   final int index;
 }
 

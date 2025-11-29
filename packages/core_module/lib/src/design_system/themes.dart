@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import 'configs/app_colors.dart';
 
@@ -9,16 +8,9 @@ final lightTheme = ThemeData(
   highlightColor: Colors.transparent,
   scaffoldBackgroundColor: AppColors.white,
   primaryColor: AppColors.white,
+  textSelectionTheme: TextSelectionThemeData(
+    cursorColor: AppColors.hintInputForm,
+    selectionColor: AppColors.hintInputForm.withAlpha(30),
+    selectionHandleColor: AppColors.hintInputForm,
+  ),
 );
-
-setDarkAppBar() {
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(statusBarBrightness: Brightness.dark),
-  );
-}
-
-setLightAppBar() {
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(statusBarBrightness: Brightness.light),
-  );
-}

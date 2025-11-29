@@ -1,12 +1,16 @@
 import 'package:core_module/core_module.dart';
 import 'package:flutter/material.dart';
-import 'package:ipbc_web/src/home/views/deacon_charity_view.dart';
-import 'src/home/views/home_view.dart';
-import 'src/home/view_models/home_view_model.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
-void main() {
+import 'src/home/view_models/home_view_model.dart';
+import 'src/home/views/home_view.dart';
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Future.wait([
+    SupabaseRepository.init(),
+    initializeDateFormatting('pt_BR', null),
+  ]);
   setUrlStrategy(PathUrlStrategy());
   runApp(
     ModularApp(
@@ -24,7 +28,19 @@ void main() {
 class MainModule extends Module {
   @override
   void binds(i) {
-    i.addSingleton<HomeViewModel>(HomeViewModel.new);
+    i.addSingleton<SupabaseClient>(() => Supabase.instance.client);
+    i.addSingleton<SupabaseRepository>(
+      () => SupabaseRepository(supabaseClient: i.get<SupabaseClient>()),
+    );
+    i.addSingleton(
+      () =>
+          UseCases<SupabaseRepository>(repository: i.get<SupabaseRepository>()),
+    );
+
+    i.addSingleton<HomeViewModel>(
+      () =>
+          HomeViewModel(useCases: i.get<UseCases<SupabaseRepository>>()),
+    );
   }
 
   @override

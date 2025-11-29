@@ -8,10 +8,10 @@ class TemplateFormWidget extends StatefulWidget {
     super.key,
     required this.controller,
     required this.globalKey,
-    required this.errorText,
-    required this.isValid,
+    this.errorText,
+    this.isValid,
     required this.isPressed,
-    required this.validator,
+    this.validator,
     required this.inputDecoration,
     this.obscure,
     this.title,
@@ -26,6 +26,8 @@ class TemplateFormWidget extends StatefulWidget {
     this.readOnly,
     this.fieldMargin,
     this.valueListenable,
+    this.errorColor,
+    this.onChanged,
   });
 
   final int? maxLines;
@@ -40,12 +42,12 @@ class TemplateFormWidget extends StatefulWidget {
 
   final GlobalKey<FormState> globalKey;
 
-  final String errorText;
+  final String? errorText;
 
   final String? title;
 
-  final bool isValid;
-
+  final bool? isValid;
+  final void Function(String)? onChanged;
   final ValueNotifier<bool>? obscure;
 
   final ValueNotifier<bool> isPressed;
@@ -56,13 +58,14 @@ class TemplateFormWidget extends StatefulWidget {
 
   final InputDecoration inputDecoration;
 
-  final String? Function(dynamic) validator;
+  final String? Function(dynamic)? validator;
 
   final EdgeInsetsGeometry? titleMargin;
 
   final EdgeInsetsGeometry? horizontalSymmetric;
 
   final Color? color;
+  final Color? errorColor;
 
   final Color? defaultHintColor;
 
@@ -77,8 +80,9 @@ class _TemplateFormWidgetState extends State<TemplateFormWidget> {
   Widget build(BuildContext context) {
     return ValueListenableBuilder(
       valueListenable: widget.valueListenable ?? ValueNotifier(true),
-      builder: (_, value, ___) {
+      builder: (_, value, _) {
         return FormFieldWidget(
+          onChanged: widget.onChanged,
           horizontalSymmetric:
               widget.horizontalSymmetric ??
               const EdgeInsets.symmetric(horizontal: 16),
@@ -89,7 +93,9 @@ class _TemplateFormWidgetState extends State<TemplateFormWidget> {
           fieldDecoration: _fieldDecoration(
             isValid: widget.isValid,
             color: widget.color,
+            errorColor: widget.errorColor,
           ),
+          errorColor: widget.errorColor,
           title: widget.title,
           isValid: widget.isValid,
           maxLines: widget.maxLines,
@@ -111,16 +117,19 @@ class _TemplateFormWidgetState extends State<TemplateFormWidget> {
     );
   }
 
-  _fieldDecoration({required isValid, Color? color}) => BoxDecoration(
-    color: AppColors.white,
-    border: Border.all(
-      color: color ?? (isValid ? AppColors.secondaryGrey : Colors.red),
-    ),
-    borderRadius: BorderRadius.circular(16),
-  );
+  BoxDecoration _fieldDecoration({required bool? isValid, Color? color, Color? errorColor}) =>
+      BoxDecoration(
+        color: AppColors.white,
+        border: Border.all(
+          color:
+              color ??
+              ((isValid ?? true) ? AppColors.secondaryGrey : errorColor ?? Colors.red),
+        ),
+        borderRadius: BorderRadius.circular(16),
+      );
 }
 
-fieldInputDecoration({
+InputDecoration fieldInputDecoration({
   required bool isValid,
   required hintText,
   Widget? suffixIcon,
@@ -128,6 +137,7 @@ fieldInputDecoration({
   BoxConstraints? prefixIconConstraints,
   BoxConstraints? suffixIconConstraints,
   Color? hintColor,
+  Color? errorHintColor,
   EdgeInsetsGeometry? contentPadding,
 }) {
   return InputDecoration(
@@ -139,14 +149,19 @@ fieldInputDecoration({
     hintStyle: AppFonts.defaultFont(
       fontSize: 12,
       color:
-          hintColor ?? (isValid ? AppColors.hintInputForm : AppColors.delete),
+          hintColor ??
+          (isValid
+              ? AppColors.hintInputForm
+              : errorHintColor ?? AppColors.delete),
     ),
     contentPadding:
         contentPadding ?? const EdgeInsets.only(left: 16, bottom: 5, right: 5),
     hintText: hintText,
     counterStyle: AppFonts.defaultFont(
       fontSize: 10,
-      color: isValid ? AppColors.hintInputForm : AppColors.delete,
+      color: isValid
+          ? AppColors.hintInputForm
+          : errorHintColor ?? AppColors.delete,
     ),
   );
 }

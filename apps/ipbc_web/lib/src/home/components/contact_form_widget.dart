@@ -1,5 +1,7 @@
 import 'package:core_module/core_module.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:ipbc_web/src/home/view_models/home_view_model.dart';
 
 class ContactFormWidget extends StatefulWidget {
   const ContactFormWidget({super.key});
@@ -8,199 +10,250 @@ class ContactFormWidget extends StatefulWidget {
   State<ContactFormWidget> createState() => _ContactFormWidgetState();
 }
 
-class _ContactFormWidgetState extends State<ContactFormWidget> {
-  late double vWidth;
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _messageController = TextEditingController();
+class _ContactFormWidgetState extends State<ContactFormWidget>
+    with DeviceInfoMixin {
+  late HomeViewModel viewModel;
+  bool isBrowserDevice = false;
 
-  final double mdSize = 770;
+  @override
+  initState() {
+    super.initState();
+    viewModel = Modular.get<HomeViewModel>();
+    getBrowserType();
+  }
 
-  final _nameKey = GlobalKey<FormState>();
-  final _emailKey = GlobalKey<FormState>();
-  final _messageKey = GlobalKey<FormState>();
-
-  String nameErrorText = 'por favor, insira um nome.';
-  String emailErrorText = 'por favor, insira um email válido.';
-  String messageErrorText = 'por favor, insira uma mensagem.';
-
-  bool _isNameValid = true;
-  bool _isEmailValid = true;
-  bool _isMessageValid = true;
-  bool _isSubmitted = false;
+  Future<void> getBrowserType() async {
+    isBrowserDevice = await isBrowserOnDevice();
+    viewModel.value = UpdateFormFieldState();
+  }
 
   @override
   Widget build(BuildContext context) {
-    vWidth = context.sizeOf.width;
-    if (vWidth > mdSize) {
-      return web();
-    } else {
-      return mobile();
-    }
+    viewModel.vWidth = context.sizeOf.width;
+    return ValueListenableBuilder(
+      valueListenable: viewModel,
+      builder: (_, state, child) {
+        if (viewModel.vWidth > viewModel.mdSize) {
+          return web();
+        } else {
+          return mobile();
+        }
+      },
+    );
   }
 
-  web() => Container(
-        width: vWidth,
-        decoration: const BoxDecoration(color: AppColors.grey0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            title(),
-            subtitle(width: 500),
-            nameField(width: 500),
-            emailField(width: 500),
-            messageField(width: 500),
-            sendButton(width: 500),
-          ],
-        ),
-      );
+  Container web() => Container(
+    width: viewModel.vWidth,
+    decoration: const BoxDecoration(color: AppColors.grey0),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        title(),
+        subtitle(width: 500),
+        nameField(width: 500),
+        emailField(width: 500),
+        messageField(width: 500),
+        sendButton(width: 500),
+      ],
+    ),
+  );
 
-  mobile() => Container(
-        decoration: const BoxDecoration(color: AppColors.grey0),
-        width: vWidth,
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  title(),
-                  subtitle(width: vWidth * .7),
-                  nameField(
-                    width: vWidth < 500 ? vWidth : 500,
-                  ),
-                  emailField(
-                    width: vWidth < 500 ? vWidth : 500,
-                  ),
-                  messageField(
-                    width: vWidth < 500 ? vWidth : 500,
-                  ),
-                  sendButton(
-                    width: vWidth < 500 ? vWidth : 500,
-                  ),
-                ],
+  Container mobile() => Container(
+    decoration: const BoxDecoration(color: AppColors.grey0),
+    width: viewModel.vWidth,
+    child: Column(
+      children: [
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              title(),
+              subtitle(width: viewModel.vWidth * .7),
+              nameField(width: viewModel.vWidth < 500 ? viewModel.vWidth : 500),
+              emailField(
+                width: viewModel.vWidth < 500 ? viewModel.vWidth : 500,
+              ),
+              messageField(
+                width: viewModel.vWidth < 500 ? viewModel.vWidth : 500,
+              ),
+              sendButton(
+                width: viewModel.vWidth < 500 ? viewModel.vWidth : 500,
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Container title() => Container(
+    margin: const EdgeInsets.only(top: 80, bottom: 16),
+    child: Text(
+      'Entre em contato',
+      textAlign: TextAlign.center,
+      style: AppFonts.defaultFont(
+        fontSize: 32,
+        color: AppColors.grey12,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
+
+  Container subtitle({required double width}) => Container(
+    width: width,
+    margin: const EdgeInsets.only(bottom: 40),
+    child: Text(
+      'Envie seu pedido de oração, solicitação ou dúvida.',
+      textAlign: TextAlign.center,
+      style: AppFonts.defaultFont(height: 1.5, color: AppColors.grey8),
+    ),
+  );
+
+  FormFieldWidget nameField({required double width}) => FormFieldWidget(
+    fieldDecoration: BoxDecoration(
+      color: AppColors.white,
+      border: Border.all(
+        color: viewModel.isNameValid.value ? AppColors.white : AppColors.delete,
+      ),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    fieldKey: viewModel.nameKey,
+    titleMargin: const EdgeInsets.only(bottom: 8),
+    title: 'Nome',
+    titleStyle: _titleStyle,
+    isValid: viewModel.isNameValid.value,
+    controller: viewModel.nameController,
+    errorText: viewModel.nameErrorText,
+    onChanged: (data) {
+      viewModel.formValidation(
+        !viewModel.isEmptyData(data),
+        viewModel.isNameValid,
+      );
+    },
+    fieldHeight: 42,
+    fieldWidth: width,
+    isSubmitted: !viewModel.isSubmitted.value,
+    inputDecoration: _inputDecoration(
+      isValid: viewModel.isNameValid.value,
+      hintText: 'Seu nome completo',
+    ),
+    fieldStyle: _fieldStyle(viewModel.isNameValid.value),
+    colorStyle: AppColors.hintInputForm,
+  );
+
+  FormFieldWidget emailField({required double width}) => FormFieldWidget(
+    fieldDecoration: BoxDecoration(
+      color: AppColors.white,
+      border: Border.all(
+        color: viewModel.isEmailValid.value
+            ? AppColors.white
+            : AppColors.delete,
+      ),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    fieldKey: viewModel.emailKey,
+    titleStyle: _titleStyle,
+    titleMargin: const EdgeInsets.only(top: 16, bottom: 8),
+    title: 'Email',
+    isValid: viewModel.isEmailValid.value,
+    controller: viewModel.emailController,
+    errorText: viewModel.emailErrorText,
+    fieldWidth: width,
+    fieldHeight: 42,
+    isSubmitted: !viewModel.isSubmitted.value,
+    inputDecoration: _inputDecoration(
+      isValid: viewModel.isEmailValid.value,
+      hintText: 'me@company.com',
+    ),
+    fieldStyle: _fieldStyle(viewModel.isEmailValid.value),
+    onChanged: (data) {
+      viewModel.formValidation(
+        viewModel.emailValidation(data),
+        viewModel.isEmailValid,
+      );
+    },
+    colorStyle: AppColors.hintInputForm,
+  );
+
+  FormFieldWidget messageField({required double width}) => FormFieldWidget(
+    fieldDecoration: BoxDecoration(
+      color: AppColors.white,
+      border: Border.all(
+        color: viewModel.isMessageValid.value
+            ? AppColors.white
+            : AppColors.delete,
+      ),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    fieldKey: viewModel.messageKey,
+    titleStyle: _titleStyle,
+    title: 'Mensagem',
+    isValid: viewModel.isMessageValid.value,
+    controller: viewModel.messageController,
+    errorText: viewModel.messageErrorText,
+    titleMargin: const EdgeInsets.only(top: 16, bottom: 8),
+    maxLines: 5,
+    onChanged: (data) {
+      viewModel.messageLength.value = data.length;
+      viewModel.formValidation(
+        !viewModel.isEmptyData(data),
+        viewModel.isMessageValid,
+      );
+    },
+    fieldWidth: width,
+    inputFormatters: [LengthLimitingTextInputFormatter(500)],
+    isSubmitted: !viewModel.isSubmitted.value,
+    fieldStyle: _fieldStyle(viewModel.isMessageValid.value),
+    inputDecoration: _inputDecoration(
+      isValid: viewModel.isMessageValid.value,
+      hintText: 'Sua mensagem...',
+      contentPadding: EdgeInsets.only(
+        left: 10,
+        right: 10,
+        top: isBrowserDevice ? 8 : 12,
+        bottom: 2,
+        //top 8 pra celular
+      ),
+      counter: ValueListenableBuilder<int>(
+        valueListenable: viewModel.messageLength,
+        builder: (context, length, child) {
+          return Container(
+            padding: const EdgeInsets.only(bottom: 5),
+            child: Text(
+              '$length/${viewModel.maxMessageLength}',
+              style: TextStyle(
+                color: viewModel.isMessageValid.value
+                    ? AppColors.hintInputForm
+                    : AppColors.delete,
+                fontSize: 11,
               ),
             ),
-          ],
-        ),
-      );
-
-  title() => Container(
-        margin: const EdgeInsets.only(top: 80, bottom: 16),
-        child: Text(
-          'Entre em contato',
-          textAlign: TextAlign.center,
-          style: AppFonts.defaultFont(
-            fontSize: 32,
-            color: AppColors.grey12,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      );
-
-  subtitle({required double width}) => Container(
-        width: width,
-        margin: const EdgeInsets.only(bottom: 40),
-        child: Text(
-          'Envie seu pedido de oração, solicitação ou dúvida.',
-          textAlign: TextAlign.center,
-          style: AppFonts.defaultFont(
-            height: 1.5,
-            color: AppColors.grey8,
-          ),
-        ),
-      );
-
-  nameField({required double width}) => FormFieldWidget(
-        fieldKey: _nameKey,
-        titleMargin: const EdgeInsets.only(bottom: 8),
-        title: 'Nome',
-        titleStyle: _titleStyle,
-        isValid: _isNameValid,
-        controller: _nameController,
-        errorText: nameErrorText,
-        validator: (data) {
-          return _nameValidation(data);
+          );
         },
-        fieldWidth: width,
-        isSubmitted: !_isSubmitted,
-        inputDecoration: _inputDecoration(
-            isValid: _isNameValid, hintText: 'Seu nome completo'),
-        fieldStyle: _fieldStyle(_isNameValid),
-        colorStyle: AppColors.hintInputForm,
-      );
+      ),
+    ),
+    colorStyle: AppColors.hintInputForm,
+  );
 
-  emailField({required double width}) => FormFieldWidget(
-        fieldKey: _emailKey,
-        titleStyle: _titleStyle,
-        titleMargin: const EdgeInsets.only(top: 16, bottom: 8),
-        title: 'Email',
-        isValid: _isEmailValid,
-        controller: _emailController,
-        errorText: emailErrorText,
-        fieldWidth: width,
-        isSubmitted: !_isSubmitted,
-        inputDecoration: _inputDecoration(
-          isValid: _isEmailValid,
-          hintText: 'me@company.com',
-        ),
-        fieldStyle: _fieldStyle(_isEmailValid),
-        validator: (data) {
-          return _emailValidation(data);
-        },
-        colorStyle: AppColors.hintInputForm,
-      );
-
-  messageField({required double width}) => FormFieldWidget(
-        fieldKey: _messageKey,
-        titleStyle: _titleStyle,
-        title: 'Mensagem',
-        isValid: _isMessageValid,
-        controller: _messageController,
-        errorText: messageErrorText,
-        titleMargin: const EdgeInsets.only(top: 16, bottom: 8),
-        maxLines: 5,
-        maxLength: 500,
-        fieldHeight: 115,
-        validator: (data) {
-          return _messageValidation(data);
-        },
-        fieldWidth: width,
-        isSubmitted: !_isSubmitted,
-        fieldStyle: _fieldStyle(_isMessageValid),
-        inputDecoration: _inputDecoration(
-          isValid: _isMessageValid,
-          hintText: 'Sua mensagem...',
-          contentPadding: const EdgeInsets.only(
-            left: 10,
-            right: 10,
-            top: 12,
-            //top 8 pra celular
-          ),
-        ),
-        colorStyle: AppColors.hintInputForm,
-      );
-
-  _inputDecoration(
-      {required isValid,
-      required hintText,
-      EdgeInsetsGeometry? contentPadding}) {
+  InputDecoration _inputDecoration({
+    required bool isValid,
+    required hintText,
+    EdgeInsetsGeometry? contentPadding,
+    Widget? counter,
+  }) {
     return InputDecoration(
       isDense: true,
       hintText: hintText,
       border: InputBorder.none,
-      contentPadding: contentPadding ??
-          const EdgeInsets.only(
-            left: 10,
-            right: 10,
-            //top 11 pra celular
-            top: 12,
-          ),
+      contentPadding:
+          contentPadding ??
+          EdgeInsets.only(left: 10, right: 10, top: isBrowserDevice ? 8 : 12),
       counterStyle: AppFonts.defaultFont(
         fontSize: 10,
         color: isValid ? const Color(0xff979797) : AppColors.delete,
       ),
+      counter: counter,
       hintStyle: AppFonts.defaultFont(
         fontSize: 14,
         color: isValid ? const Color(0xff979797) : AppColors.delete,
@@ -208,121 +261,38 @@ class _ContactFormWidgetState extends State<ContactFormWidget> {
     );
   }
 
-  _fieldStyle(isValid) {
+  TextStyle? _fieldStyle(bool isValid) {
     return AppFonts.defaultFont(
       fontSize: 14,
       color: isValid ? const Color(0xff979797) : AppColors.delete,
     );
   }
 
-  get _titleStyle => AppFonts.defaultFont(
-        fontSize: 14,
-        color: AppColors.grey8,
-      );
+  TextStyle? get _titleStyle => AppFonts.defaultFont(fontSize: 14, color: AppColors.grey8);
 
-  sendButton({required double width}) => Container(
-        width: width,
-        height: 49,
-        margin: const EdgeInsets.only(top: 32, bottom: 80),
-        child: ButtonWidget(
-          shadowColor: AppColors.grey6,
-          backgroundColor:
-              _isSubmitted ? AppColors.highlightGreen : AppColors.darkGreen,
-          overlayColor: _isSubmitted ? AppColors.highlightGreen : null,
-          foregroundColor: _isSubmitted ? AppColors.grey12 : AppColors.white,
-          action: () {
-            if (_nameController.text.isEmpty && !_isSubmitted) {
-              _nameBorderValidation(false);
-            }
-            if (_emailController.text.isEmpty && !_isSubmitted) {
-              _emailBorderValidation(false);
-            }
-            if (_messageController.text.isEmpty && !_isSubmitted) {
-              _messageBorderValidation(false);
-            }
-            if (_nameController.text.isNotEmpty &&
-                _emailController.text.isNotEmpty &&
-                _messageController.text.isNotEmpty &&
-                _isNameValid &&
-                _isEmailValid &&
-                _isMessageValid &&
-                !_isSubmitted) {
-              if (EmailValidator.validate(_emailController.text)) {
-                setState(() {
-                  _isSubmitted = true;
-                });
-                _nameController.clear();
-                _messageController.clear();
-                _emailController.clear();
-              } else {
-                _emailBorderValidation(false);
-              }
-            }
-          },
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                _isSubmitted ? 'Enviado!' : 'Enviar',
-              )
-            ],
-          ),
-        ),
-      );
-
-  _nameBorderValidation(bool value) async =>
-      Future.delayed(Duration.zero, () async {
-        setState(() {
-          _isNameValid = value;
-        });
-      });
-
-  _emailBorderValidation(bool value) async =>
-      Future.delayed(Duration.zero, () async {
-        setState(() {
-          _isEmailValid = value;
-        });
-      });
-
-  _messageBorderValidation(bool value) async =>
-      Future.delayed(Duration.zero, () async {
-        setState(() {
-          _isMessageValid = value;
-        });
-      });
-
-  _emailValidation(String? data) {
-    if (data == null || data.isEmpty && !_isSubmitted) {
-      _emailBorderValidation(false);
-      return null;
-    } else {
-      if (EmailValidator.validate(_emailController.text)) {
-        _emailBorderValidation(true);
-        return null;
-      } else {
-        _emailBorderValidation(false);
-        return null;
-      }
-    }
-  }
-
-  _nameValidation(String? data) {
-    if (data == null || data.isEmpty && !_isSubmitted) {
-      _nameBorderValidation(false);
-      return null;
-    } else {
-      _nameBorderValidation(true);
-      return null;
-    }
-  }
-
-  _messageValidation(String? data) {
-    if (data == null || data.isEmpty && !_isSubmitted) {
-      _messageBorderValidation(false);
-      return null;
-    } else {
-      _messageBorderValidation(true);
-      return null;
-    }
-  }
+  Container sendButton({required double width}) => Container(
+    width: width,
+    height: 49,
+    margin: const EdgeInsets.only(top: 32, bottom: 80),
+    child: ButtonWidget(
+      shadowColor: AppColors.grey6,
+      backgroundColor: viewModel.isSubmitted.value
+          ? AppColors.highlightGreen
+          : AppColors.darkGreen,
+      overlayColor: viewModel.isSubmitted.value
+          ? AppColors.highlightGreen
+          : AppColors.darkGreen,
+      foregroundColor: viewModel.isSubmitted.value
+          ? AppColors.grey12
+          : AppColors.white,
+      style: AppFonts.defaultFont(fontWeight: FontWeight.w500),
+      action: () {
+        viewModel.submit(context);
+      },
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [Text(viewModel.isSubmitted.value ? 'Enviado!' : 'Enviar')],
+      ),
+    ),
+  );
 }

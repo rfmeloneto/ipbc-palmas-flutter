@@ -14,15 +14,32 @@ class CoreModule extends Module {
 
   @override
   void exportedBinds(Injector i) {
-    i.addLazySingleton<ManageLyricStore>(ManageLyricStore.new);
-    i.addLazySingleton<LyricsListStore>(LyricsListStore.new);
     i.addSingleton<SupabaseClient>(() => Supabase.instance.client);
     i.addSingleton<SupabaseRepository>(
       () => SupabaseRepository(supabaseClient: i.get<SupabaseClient>()),
     );
-    i.addSingleton<IAuthUseCases>(
+
+    i.addLazySingleton<HiveRepository>(() => HiveRepository());
+
+    i.addSingleton(
+      () =>
+          UseCases<SupabaseRepository>(repository: i.get<SupabaseRepository>()),
+    );
+
+    i.addLazySingleton<LyricsListStore>(
+      () => LyricsListStore(
+        eventBus: i.get<GenericEventBus<GenericState<SearchState>>>(),
+      ),
+    );
+    i.addLazySingleton<ManageLyricStore>(
+      () => ManageLyricStore(
+        useCases: i.get<UseCases<SupabaseRepository>>(),
+        lyricsListStore: i.get<LyricsListStore>(),
+      ),
+    );
+    i.addLazySingleton<IAuthUseCases>(
       () => AuthUseCases(
-        offlineRepository: i.get<IsarRepository>(),
+        offlineRepository: i.get<HiveRepository>(),
         onlineRepository: SupaAuthRepository(
           supaClient: i.get<SupabaseClient>(),
         ),
@@ -31,12 +48,7 @@ class CoreModule extends Module {
     i.addLazySingleton(
       () => AuthCircleAvatarStore(authUseCase: i.get<IAuthUseCases>()),
     );
-    i.addSingleton<Isar>(() => Isar.getInstance());
-    i.addSingleton<IsarRepository>(() => IsarRepository(isar: i.get<Isar>()));
-    i.addSingleton(
-      () =>
-          UseCases<SupabaseRepository>(repository: i.get<SupabaseRepository>()),
-    );
+
     i.addLazySingleton<IEventRepository>(EventRepository.new);
     i.addLazySingleton(
       () => EventUseCases(repository: i.get<IEventRepository>()),
@@ -47,19 +59,38 @@ class CoreModule extends Module {
         eventUseCases: i.get<EventUseCases>(),
       ),
     );
-    i.addSingleton(
-      () => UseCases<IsarRepository>(repository: i.get<IsarRepository>()),
-    );
-    i.addLazySingleton<ManageServiceStore>(
-      () => ManageServiceStore(
-        useCases: i.get<UseCases<SupabaseRepository>>(),
-        servicesPreviewStore: Modular.get<ServicesPreviewStore>(),
-        searchLyricsStore: Modular.get<SearchLyricsStore>(),
-        manageLyricStore: Modular.get<ManageLyricStore>(),
+
+    i.addLazySingleton<ServiceStore>(
+      () => ServiceStore(
+        manageLyricStore: i.get<ManageLyricStore>(),
+        lyricsListStore: i.get<LyricsListStore>(),
+        manageServiceStore: i.get<ManageServiceStore>(),
       ),
     );
-    i.addLazySingleton<SearchLyricsStore>(SearchLyricsStore.new);
-    i.addLazySingleton<ServicesPreviewStore>(ServicesPreviewStore.new);
+    i.addLazySingleton<ManageServiceStore>(
+      () => ManageServiceStore(useCases: i.get<UseCases<SupabaseRepository>>()),
+    );
+    i.add<SearchLyricsStore>(
+      () => SearchLyricsStore(
+        searchStore: i.get<SearchStore>(),
+        eventBus: i.get<GenericEventBus<GenericState<SearchState>>>(),
+        lyricsListStore: i.get<LyricsListStore>(),
+        manageLyricStore: i.get<ManageLyricStore>(),
+      ),
+    );
+    i.addLazySingleton<SearchStore>(
+      () => SearchStore(
+        eventBus: i.get<GenericEventBus<GenericState<SearchState>>>(),
+        useCases: i.get<UseCases<SupabaseRepository>>(),
+      ),
+    );
+
+    //event bus of search lyrics view
+    i.addSingleton<GenericEventBus<GenericState<SearchState>>>(
+      () => GenericEventBus<GenericState<SearchState>>(),
+      config: BindConfig(onDispose: (bus) => bus.dispose()),
+    );
+
     i.addLazySingleton<SlideCardsStore>(SlideCardsStore.new);
   }
 }

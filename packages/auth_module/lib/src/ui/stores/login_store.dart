@@ -1,7 +1,8 @@
 import 'package:core_module/core_module.dart';
 import 'package:flutter/cupertino.dart';
 
-class LoginStore extends ValueNotifier<GenericState<LoginState>> {
+class LoginStore extends ValueNotifier<GenericState<LoginState>>
+    with ConnectivityMixin, ValidationMixin {
   LoginStore({
     required AuthCircleAvatarStore authCircleAvatarStore,
     required IAuthUseCases useCases,
@@ -15,21 +16,21 @@ class LoginStore extends ValueNotifier<GenericState<LoginState>> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  get emailController => _emailController;
+  TextEditingController get emailController => _emailController;
 
-  get passwordController => _passwordController;
+  TextEditingController get passwordController => _passwordController;
   final GlobalKey<FormState> _emailKey = GlobalKey<FormState>();
   final GlobalKey<FormState> _passwordKey = GlobalKey<FormState>();
 
-  get emailKey => _emailKey;
+  GlobalKey<FormState> get emailKey => _emailKey;
 
-  get passwordKey => _passwordKey;
+  GlobalKey<FormState> get passwordKey => _passwordKey;
   final String _emailErrorText = 'por favor, insira um email válido.';
   final String _passwordErrorText = 'por favor, insira uma senha.';
 
-  get emailErrorText => _emailErrorText;
+  String get emailErrorText => _emailErrorText;
 
-  get passwordErrorText => _passwordErrorText;
+  String get passwordErrorText => _passwordErrorText;
   ValueNotifier<bool> isEmailValid = ValueNotifier(true);
   ValueNotifier<bool> isPasswordValid = ValueNotifier(true);
   ValueNotifier<bool> isLoginPressed = ValueNotifier(false);
@@ -42,26 +43,42 @@ class LoginStore extends ValueNotifier<GenericState<LoginState>> {
     String password,
     BuildContext context,
   ) async {
+    value = LoadingState<LoginState>();
     isLoginPressed.value = true;
-    final result = await _useCases.signInWithEmail(email, password);
-    if (result != null && result.isNotEmpty) {
-      navigate(AppRoutes.initialRoute);
-    } else {
-      isLoginPressed.value = false;
-      value = InitialState<LoginState>();
+    final response = await isConnected(
+      context: context,
+      onDelayedAction: () {
+        Future.delayed(Duration.zero, () {
+          isLoginPressed.value = false;
+          value = InitialState<LoginState>();
+        });
+      },
+    );
+    if (response) {
+      final message = await _useCases.signInWithEmail(email, password);
       if (context.mounted) {
-        showCustomErrorDialog(
-          title: 'Dados Incorretos',
-          message: 'Verifique se a senha e o email estão corretos.',
-          context: context,
-        );
+        if (message == null) {
+          toHome(context);
+        } else {
+          showCustomMessageDialog(
+            type: DialogType.error,
+            context: context,
+            title: 'Email ou senha incorretos!',
+            message: message,
+            duration: Duration(milliseconds: 1200),
+            onDelayedAction: () {
+              isLoginPressed.value = false;
+              value = InitialState<LoginState>();
+            },
+          );
+        }
       }
     }
   }
 
   Future<void> googleSignIn(BuildContext context) async {
-    isGoogleLoginPressed.value = true;
     value = LoadingState<LoginState>();
+    isGoogleLoginPressed.value = true;
     final token = await _useCases.signInWithGoogle();
     if (context.mounted) {
       if (token != null && token.isNotEmpty) {
@@ -78,20 +95,11 @@ class LoginStore extends ValueNotifier<GenericState<LoginState>> {
     await _onlineUseCases.signInWithFacebook();
   }*/
 
-  formValidation(bool validation, ValueNotifier<bool> isValid) {
+   void formValidation(bool validation, ValueNotifier<bool> isValid) {
     Future.delayed(Duration.zero, () async {
       isValid.value = validation;
       value = UpdateFormFieldState();
     });
-    return null;
-  }
-
-  bool isEmptyData(String? data) {
-    return (data == null || data.isEmpty);
-  }
-
-  bool emailValidation(String? data) {
-    return !isEmptyData(data) && EmailValidator.validate(data ?? '');
   }
 
   void toCreateAccount() {
@@ -120,12 +128,11 @@ class LoginStore extends ValueNotifier<GenericState<LoginState>> {
         _passwordController.text.isNotEmpty &&
         isEmailValid.value &&
         isPasswordValid.value &&
-        !isLoginPressed.value &&
-        emailValidation(_emailController.text)) {
+        !isLoginPressed.value) {
       await logIn(_emailController.text, _passwordController.text, context);
     } else {
-      isEmailValid.value = false;
-      isPasswordValid.value = false;
+      if(_emailController.text.isEmpty) isEmailValid.value = false;
+      if(_passwordController.text.isEmpty) isPasswordValid.value = false;
       value = UpdateFormFieldState();
     }
   }

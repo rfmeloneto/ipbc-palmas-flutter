@@ -21,7 +21,9 @@ class EventsListViewState extends State<EventsListView>
     _shimmerController = AnimationController.unbounded(vsync: this)
       ..repeat(min: -0.5, max: 1.5, period: const Duration(milliseconds: 1200));
     _bloc = Modular.get<EventsListBloc>();
-    _bloc.add(GetDataEvent());
+    _bloc.add(GetDataEvent(context: context));
+    _bloc.createEventStore.updateEventListViewCallback = () =>
+        _bloc.add(GetDataEvent(context: context));
   }
 
   @override
@@ -47,27 +49,24 @@ class EventsListViewState extends State<EventsListView>
                 );
               } else if (state is NoConnectionState<EventsListState>) {
                 return NoConnectionView(
-                  action: () => nativePushReplacementNamed(
-                    AppRoutes.eventsListRoute,
-                    context,
-                  ),
+                  action: () =>
+                      nativePushReplacementNamed(AppRoutes.homeRoute, context),
                 );
               } else if (state is DataFetchedState<EventsListState> ||
                   state is LoadingEventsState) {
                 return SingleChildScrollView(
+                  physics: state is LoadingEventsState
+                      ? NeverScrollableScrollPhysics()
+                      : const AlwaysScrollableScrollPhysics(),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       BackAuthTopBarWidget(
                         action: () {
-                          if (_bloc
-                              .createEventStore
-                              .updateHomeViewCallback !=
-                              null &&
+                          if (_bloc.createEventStore.updateHomeViewCallback !=
+                                  null &&
                               _bloc.createEventStore.isChangedOrAdded) {
-                            _bloc
-                                .createEventStore
-                                .updateHomeViewCallback!();
+                            _bloc.createEventStore.updateHomeViewCallback!();
                           }
                           nativePop(context);
                         },
@@ -101,6 +100,7 @@ class EventsListViewState extends State<EventsListView>
                       Container(
                         margin: const EdgeInsets.only(bottom: 40),
                         child: SlideCardsWidget(
+                          isLoading: state is LoadingEventsState,
                           shimmerController: _shimmerController,
                           onLongPressStart: (details) async {
                             await showOptionsDialog(
@@ -121,18 +121,14 @@ class EventsListViewState extends State<EventsListView>
                                     label: 'Editar',
                                     action: () async {
                                       _bloc.createEventStore.isEditing = true;
-                                      _bloc
-                                          .createEventStore
-                                          .updateEventListViewCallback = () =>
-                                          _bloc.add(GetDataEvent());
+                                      _bloc.createEventStore.eventEntity = _bloc.slideCardsStore.eventEntity;
+                                      _bloc.createEventStore.updateCallbackParam = () {
+                                        _bloc.add(GetDataEvent(context: context));
+                                        pop(context);
+                                      };
                                       await pushNamed(
                                         AppRoutes.eventRoute +
                                             AppRoutes.createEventRoute,
-                                        arguments: {
-                                          "isEditing": true,
-                                          "event":
-                                          _bloc.slideCardsStore.eventEntity,
-                                        },
                                       );
                                       if (context.mounted) {
                                         pop(context);
@@ -151,11 +147,15 @@ class EventsListViewState extends State<EventsListView>
                                     bottom: 12,
                                     icon: AppIcons.trash,
                                     label: 'Deletar',
-                                    action: () {
-                                      _bloc.add(DeleteItemEvent());
-                                      if (context.mounted) {
-                                        pop(context);
-                                      }
+                                    action: () async {
+                                      await showConfirmationDialog(
+                                      confirmAction: () async {
+                                        _bloc.add(DeleteItemEvent(context: context));
+                                      },
+                                      title: "Deletar evento",
+                                      message: "O item será deletado permanentemente. Tem certeza?",
+                                      context: context,);
+
                                     },
                                   ),
                                 ],
@@ -172,7 +172,8 @@ class EventsListViewState extends State<EventsListView>
                           shrinkWrap: true,
                           scrollDirection: Axis.vertical,
                           entities: _bloc.eventsList,
-                          route: AppRoutes.detailEventRoute,
+                          route:
+                              AppRoutes.eventRoute + AppRoutes.detailEventRoute,
                         ),
                       ),
                     ],
@@ -187,8 +188,10 @@ class EventsListViewState extends State<EventsListView>
         floatingActionButton: FloatingButtonWidget(
           action: () async {
             _bloc.createEventStore.isEditing = false;
-            _bloc.createEventStore.updateEventListViewCallback = () =>
-                _bloc.add(GetDataEvent());
+            _bloc.createEventStore.updateCallbackParam = () {
+              _bloc.add(GetDataEvent(context: context));
+              pop(context);
+            };
             await pushNamed(AppRoutes.eventRoute + AppRoutes.createEventRoute);
           },
           backgroundColor: AppColors.add,

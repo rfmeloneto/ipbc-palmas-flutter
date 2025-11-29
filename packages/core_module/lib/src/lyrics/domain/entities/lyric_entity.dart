@@ -1,14 +1,14 @@
 import 'package:core_module/core_module.dart';
 
 class LyricEntity {
-  final String id;
+  final String? id;
   final String title;
   final String group;
   final String albumCover;
   final String createAt;
   final List<VerseEntity> verses;
   LyricEntity({
-    required this.id,
+    this.id,
     required this.title,
     required this.createAt,
     required this.albumCover,
@@ -16,8 +16,20 @@ class LyricEntity {
     required this.verses,
   });
 
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is LiturgyEntity &&
+        other.runtimeType == runtimeType &&
+        other.id == id;
+  }
+
+  @override
+  int get hashCode {
+    return id.hashCode;
+  }
+
   factory LyricEntity.empty() => LyricEntity(
-    id: MockUtil.createId(),
     createAt: '',
     title: '',
     group: '',

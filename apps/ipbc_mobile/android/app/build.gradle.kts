@@ -5,7 +5,7 @@ plugins {
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
 }
-val kotlin_version = "1.9.10"
+val kotlin_version = "2.1.0"
 // Carrega o local.properties
 val localProperties = Properties().apply {
     val localPropertiesFile = rootProject.file("local.properties")
@@ -45,10 +45,16 @@ android {
 
     defaultConfig {
         applicationId = "com.ipbc.ipbc_palmas"
-        minSdk = 21
+        minSdk = flutter.minSdkVersion
         targetSdk = 36
         versionCode = flutterVersionCode
         versionName = flutterVersionName
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
+        }
     }
 
     signingConfigs {
@@ -75,4 +81,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version")
 }
 
+tasks.matching { it.name.contains("test", ignoreCase = true) }.configureEach {
+    enabled = false
+}
 

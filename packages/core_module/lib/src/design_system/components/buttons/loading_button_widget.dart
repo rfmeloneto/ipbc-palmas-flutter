@@ -24,6 +24,11 @@ class LoadingButtonWidget extends StatelessWidget {
     this.foregroundColor,
     this.overlayColor,
     this.loadingIndicatorColor,
+    this.adaptiveButtonType,
+    this.foregroundHoveredColor,
+    this.sideHoveredColor,
+    this.sideColor,
+    this.outlinedBorderWidth,
   });
 
   final ValueNotifier<bool> isPressed;
@@ -31,12 +36,15 @@ class LoadingButtonWidget extends StatelessWidget {
   final double? width;
   final Duration? duration;
   final double? height;
-  final bool isValid;
+  final ValueNotifier<bool> isValid;
   final String? label;
   final Color? backgroundColor;
   final Color? disableColor;
   final Color? overlayColor;
   final Color? foregroundColor;
+  final Color? foregroundHoveredColor;
+  final Color? sideHoveredColor;
+  final Color? sideColor;
   final Color? shadowColor;
   final BoxDecoration? decoration;
   final Widget? loadingWidget;
@@ -46,6 +54,8 @@ class LoadingButtonWidget extends StatelessWidget {
   final VoidCallback? action;
   final OutlinedBorder? shape;
   final EdgeInsetsGeometry? margin;
+  final AdaptiveButtonType? adaptiveButtonType;
+  final double? outlinedBorderWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -57,19 +67,26 @@ class LoadingButtonWidget extends StatelessWidget {
           margin:
               margin ??
               const EdgeInsets.only(top: 40, bottom: 24, left: 16, right: 16),
-          width: isLoading ? (loadingWidth ?? context.sizeOf.width) : (width ?? context.sizeOf.width),
+          width: isLoading
+              ? (loadingWidth ?? context.sizeOf.width)
+              : (width ?? context.sizeOf.width),
           height: height ?? 48,
           duration: duration ?? const Duration(milliseconds: 750),
           curve: Curves.fastOutSlowIn,
           child: ButtonWidget(
+            adaptiveButtonType: adaptiveButtonType,
             overlayColor: overlayColor,
-            textStyle: textStyle,
-            foregroundColor: foregroundColor,
+            sideColor: sideColor,
+            sideHoveredColor: sideHoveredColor,
+            foregroundHoveredColor: foregroundHoveredColor,
+            style: textStyle,
+            outlinedBorderWidth: outlinedBorderWidth,
+            foregroundColor: foregroundColor ?? AppColors.white,
             shape:
                 shape ??
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            action: isValid && !isLoading ? action : null,
-            backgroundColor: isValid
+            action: isValid.value && !isLoading ? action : null,
+            backgroundColor: isValid.value
                 ? (backgroundColor ?? AppColors.darkGreen)
                 : (disableColor ?? AppColors.disableButton),
             shadowColor: shadowColor ?? AppColors.grey0,
@@ -99,7 +116,6 @@ class LoadingButtonWidget extends StatelessWidget {
                         style:
                             textStyle ??
                             AppFonts.defaultFont(
-                              color: AppColors.white,
                               fontWeight: FontWeight.w600,
                             ),
                       ),

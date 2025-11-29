@@ -12,9 +12,8 @@ class AuthCircleAvatarWidgetState extends State<AuthCircleAvatarWidget>
     with TickerProviderStateMixin {
   final AuthCircleAvatarStore _store = Modular.get<AuthCircleAvatarStore>();
   late final AnimationController _shimmerController;
-  bool isLogoutButtonVisible = false;
-  final GlobalKey _avatarKey = GlobalKey();
-  OverlayEntry? _overlayEntry;
+
+  final MenuController _menuController = MenuController();
 
   @override
   void initState() {
@@ -26,40 +25,62 @@ class AuthCircleAvatarWidgetState extends State<AuthCircleAvatarWidget>
   @override
   dispose() {
     _shimmerController.dispose();
-    _removeLogoutMenu();
     super.dispose();
   }
 
-  void _removeLogoutMenu() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
-  }
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<GenericState<AuthCircleAvatarState>>(
+      valueListenable: _store,
+      builder: (_, state, _) {
+        Widget placeholder() => ShimmerWidget(
+          animation: _shimmerController,
+          child: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.grey.shade300,
+            ),
+          ),
+        );
 
-  void _showLogoutMenu() {
-    if (_overlayEntry != null) {
-      _removeLogoutMenu();
-      return;
-    }
+        void handleOnTap() {
+          if (state is AuthenticatedState ||
+              (state is AuthenticatedState && _store.userEntity.picture.isEmpty)) {
+            if (_menuController.isOpen) {
+              _menuController.close();
+            } else {
+              _menuController.open();
+            }
+          } else if (state is NotAuthenticatedState) {
+            pushNamed(AppRoutes.authRoute + AppRoutes.loginRoute);
+          }
+        }
 
-    final RenderBox renderBox =
-        _avatarKey.currentContext!.findRenderObject() as RenderBox;
-    final size = renderBox.size;
-    final offset = renderBox.localToGlobal(Offset.zero);
+        if (!(state is AuthenticatedState ||
+            state is NotAuthenticatedState ||
+            state is LoadingState)) {
+          return placeholder();
+        }
 
-    _overlayEntry = OverlayEntry(
-      builder: (context) {
-        return Positioned(
-          top: offset.dy + size.height + 1,
-          left: offset.dx + size.width - 83,
-          child: Material(
-            color: AppColors.white,
-            elevation: 4,
-            shadowColor: Colors.black38,
-            borderRadius: BorderRadius.circular(8),
-            child: InkWell(
+        return MenuAnchor(
+          controller: _menuController,
+          alignmentOffset: const Offset(-51, 5),
+          style: MenuStyle(
+            backgroundColor: WidgetStateProperty.all(AppColors.white),
+            elevation: WidgetStateProperty.all(4),
+            shadowColor: WidgetStateProperty.all(Colors.black38),
+            shape: WidgetStateProperty.all(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            padding: WidgetStateProperty.all(EdgeInsets.zero), // Remove padding padrão
+          ),
+          menuChildren: [
+            InkWell(
               onTap: () {
                 _store.logout();
-                _removeLogoutMenu();
+                _menuController.close();
               },
               child: SizedBox(
                 width: 83,
@@ -87,101 +108,53 @@ class AuthCircleAvatarWidgetState extends State<AuthCircleAvatarWidget>
                 ),
               ),
             ),
-          ),
-        );
-      },
-    );
-
-    Overlay.of(context).insert(_overlayEntry!);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<GenericState<AuthCircleAvatarState>>(
-      valueListenable: _store,
-      builder: (_, state, __) {
-        placeholder() => ShimmerWidget(
-          animation: _shimmerController,
-          child: Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.grey.shade300,
-            ),
-          ),
-        );
-
-        noProfile() => SizedBox(
-          width: 32,
-          height: 32,
-          child: ButtonWidget(
-            backgroundColor: Colors.transparent,
-            overlayColor: Colors.transparent,
-            elevation: 0,
-            shape: const CircleBorder(),
-            action: () => state is AuthenticatedState
-                ? () {
-                    setState(() {
-                      isLogoutButtonVisible = !isLogoutButtonVisible;
-                    });
-                  }
-                : pushNamed(AppRoutes.authRoute + AppRoutes.loginRoute),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Image.asset(AppIcons.noProfile),
-                Visibility(
-                  visible: state is AuthenticatedState,
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      AppColors.darkGreen,
+          ],
+          builder: (context, controller, child) {
+            return Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: state is AuthenticatedState
+                      ? AppColors.darkGreen
+                      : Colors.transparent,
+                  width: _store.userEntity.picture.isEmpty ? 1.2 : 1.5,
+                ),
+              ),
+              child: InkWell(
+                onTap: handleOnTap,
+                borderRadius: BorderRadius.circular(32),
+                child: (state is LoadingState || _store.userEntity.picture.isEmpty)
+                    ? Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Image.asset(AppIcons.noProfile),
+                    Visibility(
+                      visible: state is LoadingState,
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.darkGreen,
+                        ),
+                        strokeWidth: 1.3,
+                      ),
                     ),
-                    strokeWidth: 1,
+                  ],
+                )
+                    : ClipOval(
+                  child: CachedNetworkImage(
+                    imageUrl: _store.userEntity.picture,
+                    width: 32,
+                    height: 32,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => placeholder(),
+                    errorWidget: (context, url, error) => placeholder(),
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
-        if (state is AuthenticatedState || state is NotAuthenticatedState) {
-          return (state is NotAuthenticatedState ||
-                  (state is AuthenticatedState &&
-                      _store.userEntity.picture.isEmpty))
-              ? noProfile()
-              : Container(
-                  key: _avatarKey,
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.darkGreen, width: 2),
-                  ),
-                  child: Material(
-                    shape: const CircleBorder(),
-                    clipBehavior: Clip.hardEdge,
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: _showLogoutMenu,
-                      child: _store.userEntity.picture.isEmpty
-                          ? placeholder()
-                          : ClipOval(
-                              child: CachedNetworkImage(
-                                imageUrl: _store.userEntity.picture,
-                                width: 32,
-                                height: 32,
-                                fit: BoxFit.cover,
-                                placeholder: (context, url) => placeholder(),
-                                errorWidget: (context, url, error) =>
-                                    placeholder(),
-                              ),
-                            ),
-                    ),
-                  ),
-                );
-        } else {
-          return placeholder();
-        }
       },
     );
   }

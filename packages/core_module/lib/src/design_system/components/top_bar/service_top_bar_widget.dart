@@ -8,20 +8,22 @@ class ServiceTopBarWidget extends StatefulWidget {
     this.title,
     this.dateIsVisible,
     this.createAt,
+    this.backAction,
   });
 
   final String image;
   final String? title;
   final bool? dateIsVisible;
   final String? createAt;
-
+  final void Function()? backAction;
+  
   @override
   State<ServiceTopBarWidget> createState() => _ServiceTopBarWidgetState();
 }
 
 class _ServiceTopBarWidgetState extends State<ServiceTopBarWidget>
     with TickerProviderStateMixin {
-  get dateIsVisible => (widget.dateIsVisible ?? false);
+  bool get dateIsVisible => (widget.dateIsVisible ?? false);
   late final AnimationController _shimmerController;
 
   @override
@@ -39,7 +41,7 @@ class _ServiceTopBarWidgetState extends State<ServiceTopBarWidget>
 
   @override
   Widget build(BuildContext context) {
-    bool isSmallDevice =
+    bool isLargeDevice =
         context.sizeOf.width > ResponsivityUtil.smallDeviceWidth;
     Widget placeholder({child}) => ShimmerWidget(
       animation: _shimmerController,
@@ -61,11 +63,8 @@ class _ServiceTopBarWidgetState extends State<ServiceTopBarWidget>
         imageUrl: widget.image,
         height: 184,
         width: context.sizeOf.width,
-        fit: BoxFit.cover,
         placeholder: (context, url) => placeholder(),
         errorWidget: (context, url, error) => placeholder(),
-        color: const Color.fromRGBO(0, 66, 46, 0.40),
-        colorBlendMode: BlendMode.color,
         imageBuilder: (context, imageProvider) => Container(
           decoration: BoxDecoration(
             image: DecorationImage(
@@ -88,13 +87,13 @@ class _ServiceTopBarWidgetState extends State<ServiceTopBarWidget>
                       alignment: Alignment.centerLeft,
                       child: Container(
                         margin: EdgeInsets.only(
-                          left: isSmallDevice ? 16 : 10,
-                          right: isSmallDevice ? 16 : 10,
+                          left: isLargeDevice ? 16 : 10,
+                          right: isLargeDevice ? 16 : 10,
                         ),
                         child: BackButtonWidget(
                           color: AppColors.white,
-                          size: isSmallDevice ? 30 : 26,
-                          action: () => nativePop(context),
+                          sizeIcon: 20.5,
+                          action: widget.backAction ?? () => nativePop(context),
                         ),
                       ),
                     ),
@@ -110,7 +109,7 @@ class _ServiceTopBarWidgetState extends State<ServiceTopBarWidget>
                               overflow: TextOverflow.ellipsis,
                               widget.title ?? '',
                               style: AppFonts.defaultFont(
-                                fontSize: isSmallDevice ? 18 : 16,
+                                fontSize: isLargeDevice ? 18 : 16,
                                 color: AppColors.white,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -126,7 +125,7 @@ class _ServiceTopBarWidgetState extends State<ServiceTopBarWidget>
                                 ),
                               ),
                               margin: EdgeInsets.only(
-                                right: isSmallDevice ? 16 : 10,
+                                right: isLargeDevice ? 16 : 10,
                               ),
                               child: Container(
                                 margin: const EdgeInsets.only(
@@ -139,7 +138,7 @@ class _ServiceTopBarWidgetState extends State<ServiceTopBarWidget>
                                   widget.createAt ?? '',
                                   style: AppFonts.defaultFont(
                                     color: const Color(0xFF005B40),
-                                    fontSize: isSmallDevice ? 13 : 11,
+                                    fontSize: isLargeDevice ? 13 : 11,
                                   ),
                                 ),
                               ),

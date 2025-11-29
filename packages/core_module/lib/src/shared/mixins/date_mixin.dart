@@ -58,21 +58,37 @@ mixin DateMixin {
     );
   }
 
-  Future<void> setDateTime({
-    required DateTime selectedDate,
-    required Function(DateTime) onDatePicked,
-    required BuildContext context,
-  }) async {
-    DateTime? pickedDate = await selectDateTime(
-      selectedDate: selectedDate,
-      context: context,
-    );
-    if (pickedDate != null) {
-      onDatePicked(pickedDate);
-    }
-  }
+   Future<void> setDateTime({
+     required DateTime selectedDate,
+     required Function(DateTime) onDatePicked,
+     required BuildContext context,
+   }) async {
+     final pickedDate = await selectDateTime(
+       selectedDate: selectedDate,
+       context: context,
+     );
+     if (pickedDate == null) return;
 
-  TimeOfDay parseTimeOfDayFromH(String timeString) {
+     final today = DateTime.now();
+     final todayOnly = DateTime(today.year, today.month, today.day);
+     final pickedOnly = DateTime(pickedDate.year, pickedDate.month, pickedDate.day);
+
+     if (pickedOnly.isBefore(todayOnly)) {
+       if (context.mounted) {
+         showCustomMessageDialog(
+           type: DialogType.error,
+           context: context,
+           title: 'Data inválida',
+           message: 'Selecione uma data igual ou posterior a hoje.',
+         );
+       }
+       return;
+     }
+
+     onDatePicked(pickedDate);
+   }
+
+   TimeOfDay parseTimeOfDayFromH(String timeString) {
     final parts = timeString.split('h');
     final hour = int.parse(parts[0]);
     final minute = (parts.length > 1 && parts[1].isNotEmpty)
@@ -81,7 +97,7 @@ mixin DateMixin {
     return TimeOfDay(hour: hour, minute: minute);
   }
 
-  initDate({
+  void initDate({
     TimeOfDay? startTimeParam,
     TimeOfDay? endTimeParam,
     DateTime? startDateParam,
@@ -161,7 +177,18 @@ mixin DateMixin {
      return text[0].toUpperCase() + text.substring(1);
    }
 
-   String getFormattedDateTimeFull(DateTime dateTime) {
+   bool isSameDate(DateTime date1, DateTime date2) {
+     return date1.year == date2.year &&
+         date1.month == date2.month &&
+         date1.day == date2.day;
+   }
+
+   String getFormattedDateTimeFull(
+       DateTime dateTime, {
+         bool isNotYear = false,
+         bool isDateAndTime = false,
+         bool isShortDate = false,
+       }) {
      var weekday = DateFormat('EEE', 'pt_BR').format(dateTime);
      weekday = weekday.replaceAll('.', ''); // remove o ponto
      weekday = capitalize(weekday);
@@ -173,6 +200,24 @@ mixin DateMixin {
 
      final year = DateFormat('y', 'pt_BR').format(dateTime);
 
+     if (isDateAndTime) {
+       // Formato com hora e minuto -> 12 de Outubro às 19h ou 19h30
+       final hour = DateFormat('HH', 'pt_BR').format(dateTime);
+       final minute = DateFormat('mm', 'pt_BR').format(dateTime);
+
+       final formattedTime = (minute == "00") ? "${hour}h" : "${hour}h$minute";
+       return "$day de $month às $formattedTime";
+     }
+
+     if (isShortDate) {
+       return "$day de $month";
+     }
+
+     if (isNotYear) {
+       return "$weekday, $day de $month";
+     }
+
      return "$weekday, $day de $month $year";
    }
+
 }

@@ -22,19 +22,21 @@ class GuidelineWidget extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       itemCount: liturgiesList.length,
       itemBuilder: (context, index) {
+        bool hasAdditional =
+            liturgiesList[index].isAdditional &&
+            liturgiesList[index].additional != null;
         return Row(
-          children: <Widget>[
+          children: [
             Column(
-              children: <Widget>[
+              children: [
                 Container(
                   width: 1,
-                  height: liturgiesList[index].isAdditional ? 29 : 18,
+                  height: hasAdditional ? 29 : 18,
                   color: index == 0 ? AppColors.white : timelineColor,
                 ),
                 Container(
                   width: 6,
                   height: 6,
-                  margin: const EdgeInsets.only(left: 6, right: 6),
                   decoration: BoxDecoration(
                     color: circleColor,
                     borderRadius: BorderRadius.circular(50),
@@ -42,17 +44,21 @@ class GuidelineWidget extends StatelessWidget {
                 ),
                 Container(
                   width: 1,
-                  height: liturgiesList[index].isAdditional ? 28 : 18,
-                  color:
-                      index == liturgiesList.length - 1
-                          ? AppColors.white
-                          : timelineColor,
+                  height: hasAdditional ? 29 : 18,
+                  color: index == liturgiesList.length - 1
+                      ? AppColors.white
+                      : timelineColor,
                 ),
               ],
             ),
             Expanded(
               child: Container(
-                margin: const EdgeInsets.all(8),
+                margin: const EdgeInsets.only(
+                  left: 12,
+                  bottom: 8,
+                  top: 8,
+                  right: 0,
+                ),
                 decoration: const BoxDecoration(color: Colors.white),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -65,11 +71,11 @@ class GuidelineWidget extends StatelessWidget {
                       ),
                     ),
                     Visibility(
-                      visible: liturgiesList[index].isAdditional,
+                      visible: hasAdditional,
                       child: Container(
                         margin: const EdgeInsets.only(top: 4),
                         child: Text(
-                          liturgiesList[index].isAdditional ? liturgiesList[index].additional! : '',
+                          liturgiesList[index].additional ?? '',
                           style: AppFonts.defaultFont(
                             color: AppColors.grey8,
                             fontSize: 13,

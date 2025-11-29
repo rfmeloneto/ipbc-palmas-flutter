@@ -13,16 +13,15 @@ class LyricsListView extends StatefulWidget {
 
 class _LyricsListViewState extends State<LyricsListView>
     with TickerProviderStateMixin {
-
   late final LyricBloc _bloc;
 
   @override
   void initState() {
     super.initState();
     _bloc = Modular.get<LyricBloc>();
-    setLightAppBar();
     WidgetsBinding.instance.addPostFrameCallback((frameCallback) {
       _bloc.init(context: context);
+      _bloc.viewHashCode = hashCode;
     });
   }
 
@@ -51,12 +50,17 @@ class _LyricsListViewState extends State<LyricsListView>
                 return RefreshIndicator(
                   color: AppColors.darkGreen,
                   onRefresh: () async {
-                    _bloc.add(GetDataEvent());
+                    _bloc.add(GetDataEvent(context: context));
                   },
                   child: SingleChildScrollView(
                     child: Column(
                       children: [
                         const TitleTopBarWidget(title: "Músicas"),
+                        Container(
+                          margin: const EdgeInsets.only(top: 37),
+                          child: SearchWidget(storeId: _bloc.viewHashCode,),
+                        ),
+
                         /*Text(state.entities.length.toString()),
                         ElevatedButton(
                             onPressed: () {
@@ -65,56 +69,11 @@ class _LyricsListViewState extends State<LyricsListView>
                               );
                             },
                             child: const Text('Paginação')),*/
-                        Container(
-                          margin: const EdgeInsets.only(top: 30, bottom: 13),
-                          child: SearchBarWidget(
-                            controller: _bloc.controller,
-                            onChange: (value) {
-                              bool writing = value.length > 1;
-                              _bloc.add(
-                                FilterEvent<LyricEvent, LyricEntity>(
-                                  _bloc.controller.text,
-                                  writing,
-                                  _bloc.selectedIndex == 0
-                                      ? TitleFilter()
-                                      : ArtistFilter(),
-                                  // FilterFactory<LyricEvent,List<LyricEntity>>(index: selectedIndex),
-                                  _bloc.selectedIndex,
-                                ),
-                              );
-                            },
-                            action: () {
-                              // _bloc.add(
-                              //     FilterEvent(controller.text, selectedIndex));
-                            },
-                          ),
-                        ),
-                        Container(
-                          margin: const EdgeInsets.only(left: 21.5),
-                          child: OwnChoiceChipsWidget(
-                            action: _bloc.selectOptions,
-                          ),
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: [
-                            Container(
-                              margin: const EdgeInsets.only(top: 24, left: 17),
-                              child: Text(
-                                "Adicionados recentemente",
-                                style: AppFonts.defaultFont(
-                                  color: AppColors.grey12,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 17,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        Container(
-                          margin: const EdgeInsets.only(top: 14),
+                        Visibility(
+                          visible:
+                              _bloc.lyricsListStore.entitiesList.isNotEmpty,
                           child: LyricsListWidget(
-                            entitiesList: _bloc.entitiesList,
+                            title: "Adicionados recentemente",
                             onLongPressStart: (details) async {
                               await showOptionsDialog(
                                 context: context,
@@ -132,14 +91,7 @@ class _LyricsListViewState extends State<LyricsListView>
                                       icon: AppIcons.edit,
                                       label: 'Editar',
                                       action: () {
-                                        _bloc.manageLyricStore.isEditing = true;
-                                        pushNamed(
-                                          AppRoutes.servicesRoute +
-                                              AppRoutes.manageLyricsRoute,
-                                          arguments:
-                                              _bloc.lyricsListStore.lyricModel,
-                                        );
-                                        pop(context);
+                                        _bloc.editLyric(context);
                                       },
                                     ),
                                     Divider(
@@ -154,16 +106,27 @@ class _LyricsListViewState extends State<LyricsListView>
                                       bottom: 12,
                                       icon: AppIcons.trash,
                                       label: 'Deletar',
-                                      action: () {},
+                                      action: () async {
+                                        await showConfirmationDialog(
+                                          confirmAction: () async {
+                                            _bloc.deleteLyric(context: context);
+                                          },
+                                          title: "Deletar Letra",
+                                          message:
+                                              "A letra será deletada permanentemente. Tem certeza?",
+                                          context: context,
+                                        );
+                                      },
                                     ),
                                   ],
                                 ),
                               );
+                              _bloc.lyricsListStore.tappedIndex.value = null;
                             },
                             onTap: () {
                               pushNamed(
                                 AppRoutes.lyricsRoute + AppRoutes.lyricRoute,
-                                arguments: _bloc.lyricsListStore.lyricModel,
+                                arguments: _bloc.lyricsListStore.lyricEntity,
                               );
                             },
                           ),
